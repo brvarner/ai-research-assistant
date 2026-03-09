@@ -1,0 +1,31 @@
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Node / React
+frontend/node_modules/
+frontend/build/
+
+# Models (large local files)
+*.bin
+*.safetensors
+
+# HuggingFace cache
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
