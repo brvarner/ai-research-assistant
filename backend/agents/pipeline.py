@@ -49,14 +49,12 @@ DEVICE_MAP = {
     }
 
 def get_db_conn():
-    url = os.getenv("DATABASE_URL")
-    result = urllib.parse.urlparse(url)
     return psycopg2.connect(
-        host=result.hostname,
-        port=result.port,
-        database=result.path[1:],
-        user = result.username,
-        password = result.password,
+        host=os.getenv("DB_HOST"),
+        port=os.getenv("DB_PORT", "5432"),
+        database=os.getenv("DB_NAME", "postgres"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD"),
         sslmode="require"
     )
 
