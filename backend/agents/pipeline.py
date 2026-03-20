@@ -58,14 +58,13 @@ def get_db_conn():
         sslmode="require"
     )
 
-def router_agent(state: ResearchState) -> ResearchState:
-    """Decides which agents to invoke based on the query."""
+def router_agent(state: ResearchState) -> dict:
     query = state["query"].lower()
 
     graph_keywords = [
         "port", "connect", "midi", "usb", "spec", "polyphony",
         "feature", "has", "support", "interface", "jack", "output",
-        "input", "compare", "difference", "versus", "vs", "sd card", 
+        "input", "compare", "difference", "versus", "vs", "sd card",
         "storage", "memory", "sampling"
     ]
     vector_keywords = [
@@ -77,16 +76,11 @@ def router_agent(state: ResearchState) -> ResearchState:
     needs_graph = any(k in query for k in graph_keywords)
     needs_vector = any(k in query for k in vector_keywords)
 
-    # Default to both if unclear
     if not needs_graph and not needs_vector:
         needs_graph = True
         needs_vector = True
 
-    log = state.get("agent_log", [])
-    log.append(f"Router: needs_vector={needs_vector}, needs_graph={needs_graph}")
-
     return {
-        **state,
         "needs_vector": needs_vector,
         "needs_graph": needs_graph,
         "agent_log": [f"Router: needs_vector={needs_vector}, needs_graph={needs_graph}"]
