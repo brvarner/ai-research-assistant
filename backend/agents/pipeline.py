@@ -1,10 +1,10 @@
-from typing import TypedDict
+from typing import TypedDict, Annotated
 from langgraph.graph import StateGraph, END
 from langchain_google_genai import ChatGoogleGenerativeAI
 from sentence_transformers import SentenceTransformer
 from neo4j import GraphDatabase
 import psycopg2
-import urllib.parse
+import operator
 import os
 from dotenv import load_dotenv
 
@@ -18,7 +18,7 @@ class ResearchState(TypedDict):
     vector_results: list
     graph_context: str
     answer: str
-    agent_log: list[str]
+    agent_log: Annotated[list[str], operator.add]
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -65,7 +65,8 @@ def router_agent(state: ResearchState) -> ResearchState:
     graph_keywords = [
         "port", "connect", "midi", "usb", "spec", "polyphony",
         "feature", "has", "support", "interface", "jack", "output",
-        "input", "compare", "difference", "versus", "vs"
+        "input", "compare", "difference", "versus", "vs", "sd card", 
+        "storage", "memory", "sampling"
     ]
     vector_keywords = [
         "how", "what", "explain", "guide", "setup", "use",
@@ -88,16 +89,15 @@ def router_agent(state: ResearchState) -> ResearchState:
         **state,
         "needs_vector": needs_vector,
         "needs_graph": needs_graph,
-        "agent_log": log
+        "agent_log": [f"Router: needs_vector={needs_vector}, needs_graph={needs_graph}"]
     }
     
-def vector_agent(state: ResearchState) -> ResearchState:
-    """Queries pgvector for semantically relevant chunks."""
-    log = state.get("agent_log", [])
-
+def vector_agent(state: ResearchState) -> dict:
     if not state.get("needs_vector"):
-        log.append("Vector Agent: skipped")
-        return {**state, "vector_results": [], "agent_log": log}
+        return {
+            "vector_results": [],
+            "agent_log": ["Vector Agent: skipped"]
+        }
 
     query_vector = embedding_model.encode(state["query"]).tolist()
     conn = get_db_conn()
@@ -132,19 +132,19 @@ def vector_agent(state: ResearchState) -> ResearchState:
         for r in rows
     ]
 
-    log.append(f"Vector Agent: found {len(results)} chunks")
-    return {**state, "vector_results": results, "agent_log": log}
+    return {
+        "vector_results": results,
+        "agent_log": [f"Vector Agent: found {len(results)} chunks"]
+    }
 
 
-def graph_agent(state: ResearchState) -> ResearchState:
-    """Queries Neo4j for structured device knowledge."""
-    log = state.get("agent_log", [])
-
+def graph_agent(state: ResearchState) -> dict:
     if not state.get("needs_graph"):
-        log.append("Graph Agent: skipped")
-        return {**state, "graph_context": "", "agent_log": log}
+        return {
+            "graph_context": "",
+            "agent_log": ["Graph Agent: skipped"]
+        }
 
-    # Determine which devices to query
     if state.get("source") and state["source"] in DEVICE_MAP:
         devices = [DEVICE_MAP[state["source"]]]
     else:
@@ -195,13 +195,13 @@ def graph_agent(state: ResearchState) -> ResearchState:
             sections.append(section)
 
     graph_context = "\n".join(sections)
-    log.append(f"Graph Agent: retrieved data for {len(sections)} devices")
-    return {**state, "graph_context": graph_context, "agent_log": log}
+    return {
+        "graph_context": graph_context,
+        "agent_log": [f"Graph Agent: retrieved data for {len(sections)} devices"]
+    }
 
-def synthesis_agent(state: ResearchState) -> ResearchState:
-    """Combines vector and graph results into a final answer using Gemini."""
-    log = state.get("agent_log", [])
 
+def synthesis_agent(state: ResearchState) -> dict:
     vector_context = "\n\n".join([
         f"[Source: {r['source']}, Page {r['page']}]\n{r['content']}"
         for r in state.get("vector_results", [])
@@ -209,7 +209,7 @@ def synthesis_agent(state: ResearchState) -> ResearchState:
 
     graph_context = state.get("graph_context", "")
 
-    prompt = f"""You are a helpful assistant answering questions about 
+    prompt = f"""You are a helpful assistant answering questions about
 keyboard and synthesizer manuals.
 
 You have access to two sources of information:
@@ -229,9 +229,11 @@ QUESTION: {state["query"]}
 ANSWER:"""
 
     response = llm.invoke(prompt)
-    log.append("Synthesis Agent: answer generated")
 
-    return {**state, "answer": response.content, "agent_log": log}
+    return {
+        "answer": response.content,
+        "agent_log": ["Synthesis Agent: answer generated"]
+    }
 
 
 # ─── Routing logic ────────────────────────────────────────────────────────────
