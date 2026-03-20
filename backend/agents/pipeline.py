@@ -59,6 +59,7 @@ def get_db_conn():
     )
 
 def router_agent(state: ResearchState) -> dict:
+    print(f"ROUTER INPUT query: {state.get('query')}")
     query = state["query"].lower()
 
     graph_keywords = [
@@ -80,14 +81,18 @@ def router_agent(state: ResearchState) -> dict:
         needs_graph = True
         needs_vector = True
 
-    return {
+    result = {
         "needs_vector": needs_vector,
         "needs_graph": needs_graph,
         "agent_log": [f"Router: needs_vector={needs_vector}, needs_graph={needs_graph}"]
     }
+    print(f"ROUTER OUTPUT: {result}")
+    return result
     
 def vector_agent(state: ResearchState) -> dict:
+    print(f"VECTOR INPUT needs_vector: {state.get('needs_vector')}")
     if not state.get("needs_vector"):
+        print("VECTOR: skipping")
         return {
             "vector_results": [],
             "agent_log": ["Vector Agent: skipped"]
@@ -126,6 +131,7 @@ def vector_agent(state: ResearchState) -> dict:
         for r in rows
     ]
 
+    print(f"VECTOR OUTPUT: found {len(results)} results")
     return {
         "vector_results": results,
         "agent_log": [f"Vector Agent: found {len(results)} chunks"]
@@ -133,7 +139,9 @@ def vector_agent(state: ResearchState) -> dict:
 
 
 def graph_agent(state: ResearchState) -> dict:
+    print(f"GRAPH INPUT needs_graph: {state.get('needs_graph')}")
     if not state.get("needs_graph"):
+        print("GRAPH: skipping")
         return {
             "graph_context": "",
             "agent_log": ["Graph Agent: skipped"]
@@ -189,6 +197,7 @@ def graph_agent(state: ResearchState) -> dict:
             sections.append(section)
 
     graph_context = "\n".join(sections)
+    print(f"GRAPH OUTPUT: retrieved data for {len(sections)} devices")
     return {
         "graph_context": graph_context,
         "agent_log": [f"Graph Agent: retrieved data for {len(sections)} devices"]
@@ -196,6 +205,9 @@ def graph_agent(state: ResearchState) -> dict:
 
 
 def synthesis_agent(state: ResearchState) -> dict:
+    print(f"SYNTHESIS INPUT vector_results count: {len(state.get('vector_results', []))}")
+    print(f"SYNTHESIS INPUT graph_context length: {len(state.get('graph_context', ''))}")
+    print(f"SYNTHESIS INPUT agent_log so far: {state.get('agent_log')}")
     vector_context = "\n\n".join([
         f"[Source: {r['source']}, Page {r['page']}]\n{r['content']}"
         for r in state.get("vector_results", [])
@@ -223,6 +235,7 @@ QUESTION: {state["query"]}
 ANSWER:"""
 
     response = llm.invoke(prompt)
+    print(f"SYNTHESIS OUTPUT answer length: {len(response.content)}")
 
     return {
         "answer": response.content,
