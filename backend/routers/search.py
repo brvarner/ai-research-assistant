@@ -21,8 +21,6 @@ neo4j_driver = GraphDatabase.driver(
 class SearchRequest(BaseModel):
     query: str
     limit: int = 5
-    source: str | None = None
-
 class SearchResult(BaseModel):
     content: str
     source: str
@@ -164,8 +162,8 @@ def chat(request: ChatRequest):
     })
     
     return ChatResponse(
-        answer = result["answer"],
-        sources = [
+        answer=result["answer"],
+        sources=[
             SearchResult(
                 content=r["content"],
                 source=r["source"],
@@ -173,5 +171,6 @@ def chat(request: ChatRequest):
                 similarity=r["similarity"]
             )
             for r in result["vector_results"]
-        ]
+        ],
+        agent_log=result.get("agent_log", [])
     )
