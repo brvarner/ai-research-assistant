@@ -59,7 +59,6 @@ def get_db_conn():
     )
 
 def router_agent(state: ResearchState) -> dict:
-    print(f"ROUTER INPUT query: {state.get('query')}")
     query = state["query"].lower()
 
     graph_keywords = [
@@ -86,13 +85,10 @@ def router_agent(state: ResearchState) -> dict:
         "needs_graph": needs_graph,
         "agent_log": [f"Router: needs_vector={needs_vector}, needs_graph={needs_graph}"]
     }
-    print(f"ROUTER OUTPUT: {result}")
     return result
     
 def vector_agent(state: ResearchState) -> dict:
-    print(f"VECTOR INPUT needs_vector: {state.get('needs_vector')}")
     if not state.get("needs_vector"):
-        print("VECTOR: skipping")
         return {
             "vector_results": [],
             "agent_log": ["Vector Agent: skipped"]
@@ -131,7 +127,6 @@ def vector_agent(state: ResearchState) -> dict:
         for r in rows
     ]
 
-    print(f"VECTOR OUTPUT: found {len(results)} results")
     return {
         "vector_results": results,
         "agent_log": [f"Vector Agent: found {len(results)} chunks"]
@@ -139,9 +134,7 @@ def vector_agent(state: ResearchState) -> dict:
 
 
 def graph_agent(state: ResearchState) -> dict:
-    print(f"GRAPH INPUT needs_graph: {state.get('needs_graph')}")
     if not state.get("needs_graph"):
-        print("GRAPH: skipping")
         return {
             "graph_context": "",
             "agent_log": ["Graph Agent: skipped"]
@@ -197,7 +190,6 @@ def graph_agent(state: ResearchState) -> dict:
             sections.append(section)
 
     graph_context = "\n".join(sections)
-    print(f"GRAPH OUTPUT: retrieved data for {len(sections)} devices")
     return {
         "graph_context": graph_context,
         "agent_log": [f"Graph Agent: retrieved data for {len(sections)} devices"]
@@ -205,9 +197,6 @@ def graph_agent(state: ResearchState) -> dict:
 
 
 def synthesis_agent(state: ResearchState) -> dict:
-    print(f"SYNTHESIS INPUT vector_results count: {len(state.get('vector_results', []))}")
-    print(f"SYNTHESIS INPUT graph_context length: {len(state.get('graph_context', ''))}")
-    print(f"SYNTHESIS INPUT agent_log so far: {state.get('agent_log')}")
     vector_context = "\n\n".join([
         f"[Source: {r['source']}, Page {r['page']}]\n{r['content']}"
         for r in state.get("vector_results", [])
@@ -215,10 +204,9 @@ def synthesis_agent(state: ResearchState) -> dict:
 
     graph_context = state.get("graph_context", "")
 
-    prompt = f"""You are a helpful assistant answering questions about
-keyboard and synthesizer manuals.
+    prompt = f"""You are an expert on keyboards and synthesizers with deep technical knowledge and genuine enthusiasm for the instruments. You have access to their manuals and structured specifications.
 
-You have access to two sources of information:
+You have two sources of information:
 
 1. STRUCTURED DEVICE DATA (knowledge graph):
 {graph_context if graph_context else "Not queried for this request."}
@@ -226,8 +214,13 @@ You have access to two sources of information:
 2. MANUAL EXCERPTS (semantic search):
 {vector_context if vector_context else "Not queried for this request."}
 
-Use both sources to give the most complete and accurate answer possible.
-Be specific — reference specs, port names, and features by name when relevant.
+Answer the question thoroughly and with personality. When listing keyboards:
+- Don't just list them — add brief context about what makes each one notable for the feature in question
+- Highlight any standout differences between models
+- If relevant, mention what type of musician or use case each keyboard suits
+- Use natural flowing language, not just bullet points
+- Be specific — cite actual specs, port names, and feature details when you have them
+
 If the answer isn't available in either source, say so clearly.
 
 QUESTION: {state["query"]}
@@ -235,7 +228,6 @@ QUESTION: {state["query"]}
 ANSWER:"""
 
     response = llm.invoke(prompt)
-    print(f"SYNTHESIS OUTPUT answer length: {len(response.content)}")
 
     return {
         "answer": response.content,
